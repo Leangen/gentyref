@@ -21,14 +21,17 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -122,14 +125,36 @@ public class GenericTypeReflector {
             return new AnnotatedTypeImpl(erase(toMapType.getType()), toMapType.getAnnotations());
         } else {
             VarMap varMap = new VarMap();
-            AnnotatedType handlingTypeAndParams = typeAndParams;
-            while(handlingTypeAndParams instanceof AnnotatedParameterizedType) {
-                AnnotatedParameterizedType pType = (AnnotatedParameterizedType)handlingTypeAndParams;
-                Class<?> clazz = (Class<?>)((ParameterizedType) pType.getType()).getRawType(); // getRawType should always be Class
-                TypeVariable[] vars = clazz.getTypeParameters();
-                varMap.addAll(vars, pType.getAnnotatedActualTypeArguments());
-                Type owner = ((ParameterizedType) pType.getType()).getOwnerType();
-                handlingTypeAndParams = owner == null ? null : annotate(owner);
+            Queue<AnnotatedType> toInspect = new ArrayDeque<>();
+            Set<AnnotatedType> seen = new HashSet<>();
+            toInspect.add(typeAndParams);
+
+            while (!toInspect.isEmpty()) {
+                AnnotatedType handlingTypeAndParams = toInspect.poll();
+                if (seen.contains(handlingTypeAndParams)) {
+                    continue;
+                }
+                seen.add(handlingTypeAndParams);
+                Class<?> clazz;
+                if (handlingTypeAndParams instanceof AnnotatedParameterizedType) {
+                    AnnotatedParameterizedType pType = (AnnotatedParameterizedType)handlingTypeAndParams;
+                    clazz = (Class<?>)((ParameterizedType) pType.getType()).getRawType(); // getRawType should always be Class
+                    TypeVariable[] vars = clazz.getTypeParameters();
+                    varMap.addAll(vars, pType.getAnnotatedActualTypeArguments());
+                    Type owner = ((ParameterizedType) pType.getType()).getOwnerType();
+                    if (owner != null) {
+                        toInspect.add(annotate(owner));
+                    }
+                } else {
+                    clazz = erase(handlingTypeAndParams.getType());
+                    if (clazz.getEnclosingClass() != null) {
+                        toInspect.add(annotate(clazz.getEnclosingClass()));
+                    }
+                    if (clazz.getAnnotatedSuperclass() != null) {
+                        toInspect.add(clazz.getAnnotatedSuperclass());
+                    }
+                }
+                toInspect.addAll(Arrays.asList(clazz.getAnnotatedInterfaces()));
             }
             return varMap.map(toMapType, mappingMode);
         }
