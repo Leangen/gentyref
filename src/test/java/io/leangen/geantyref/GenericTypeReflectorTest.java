@@ -153,6 +153,14 @@ public class GenericTypeReflectorTest extends AbstractGenericsReflectorTest {
         assertEquals(Number.class, ((TypeVariable) parameterTypes[0]).getBounds()[0]);
     }
 
+    public void testConcreteSubtypeResolve() throws NoSuchMethodException {
+        Method m = W.class.getMethod("z");
+        assertEquals(String.class, GenericTypeReflector.erase(
+            GenericTypeReflector.mapTypeParameters(
+                GenericTypeReflector.annotate(m.getGenericReturnType()),
+                GenericTypeReflector.annotate(W.class)).getType()));
+    }
+
     private class N {}
     private class P<S, K> extends N {}
     private class M<U, R> extends P<U, R> {}
@@ -162,4 +170,6 @@ public class GenericTypeReflectorTest extends AbstractGenericsReflectorTest {
     private interface I<T> {<S extends T> S m(S s);}
     private static class Q<G> implements I<G> { @Override public <S extends G> S m(S s) { return null; }
     }
+    private interface Z<T> { default T z() { return null; } }
+    private static class W implements Z<String> {}
 }
