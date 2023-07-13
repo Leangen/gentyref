@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -1193,9 +1194,17 @@ public class GenericTypeReflector {
      * @return An array containing all annotations from the given arrays, without duplicates
      */
     public static Annotation[] merge(Annotation[]... annotations) {
-        return stream(annotations).reduce(
-                (acc, arr) -> Stream.concat(stream(acc), stream(arr)).distinct().toArray(Annotation[]::new))
-                .orElse(new Annotation[0]);
+        int size = 0;
+        for (Annotation[] annos : annotations) {
+            size += annos.length;
+        }
+        Set<Annotation> result = new HashSet<>(size);
+        for (Annotation[] annos : annotations) {
+            for (Annotation anno : annos) {
+                result.add(anno);
+            }
+        }
+        return result.toArray(new Annotation[0]);
     }
 
     static boolean typeArraysEqual(AnnotatedType[] t1, AnnotatedType[] t2) {
