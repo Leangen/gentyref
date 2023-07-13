@@ -25,16 +25,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.stream.Stream;
 
-import static java.util.Arrays.stream;
 
 /**
  * Utility class for doing reflection on types.
@@ -164,18 +163,15 @@ public class GenericTypeReflector {
     private static AnnotatedType resolveType(AnnotatedType unresolved, AnnotatedType typeAndParams, VarMap.MappingMode mappingMode) {
         if (unresolved instanceof AnnotatedParameterizedType) {
             AnnotatedParameterizedType parameterizedType = (AnnotatedParameterizedType) unresolved;
-            AnnotatedType[] params = stream(parameterizedType.getAnnotatedActualTypeArguments())
-                    .map(p -> resolveType(p, typeAndParams, mappingMode))
-                    .toArray(AnnotatedType[]::new);
+            AnnotatedType[] params = mapArray(parameterizedType.getAnnotatedActualTypeArguments(), AnnotatedType[]::new,
+                    p -> resolveType(p, typeAndParams, mappingMode));
             return replaceParameters(parameterizedType, params);
         }
         if (unresolved instanceof AnnotatedWildcardType) {
-            AnnotatedType[] lower = stream(((AnnotatedWildcardType) unresolved).getAnnotatedLowerBounds())
-                    .map(b -> resolveType(b, typeAndParams, mappingMode))
-                    .toArray(AnnotatedType[]::new);
-            AnnotatedType[] upper = stream(((AnnotatedWildcardType) unresolved).getAnnotatedUpperBounds())
-                    .map(b -> resolveType(b, typeAndParams, mappingMode))
-                    .toArray(AnnotatedType[]::new);
+            AnnotatedType[] lower = mapArray(((AnnotatedWildcardType) unresolved).getAnnotatedLowerBounds(), AnnotatedType[]::new,
+                    b -> resolveType(b, typeAndParams, mappingMode));
+            AnnotatedType[] upper = mapArray(((AnnotatedWildcardType) unresolved).getAnnotatedUpperBounds(), AnnotatedType[]::new,
+                    b -> resolveType(b, typeAndParams, mappingMode));
             return new AnnotatedWildcardTypeImpl((WildcardType) unresolved.getType(), unresolved.getAnnotations(), lower, upper);
         }
         if (unresolved instanceof AnnotatedTypeVariable) {
@@ -710,7 +706,7 @@ public class GenericTypeReflector {
      * or {@code declaringType} has a type parameter that is used in one of the parameters, or {@code declaringType} is a raw type.
      */
     public static Type[] getExactParameterTypes(Executable exe, Type declaringType) {
-        return stream(getExactParameterTypes(exe, annotate(declaringType))).map(AnnotatedType::getType).toArray(Type[]::new);
+        return mapArray(getExactParameterTypes(exe, annotate(declaringType)), Type[]::new, AnnotatedType::getType);
     }
 
     public static AnnotatedType[] getParameterTypes(Executable exe, AnnotatedType declaringType) {
@@ -718,7 +714,7 @@ public class GenericTypeReflector {
     }
 
     public static Type[] getParameterTypes(Executable exe, Type declaringType) {
-        return stream(getParameterTypes(exe, annotate(declaringType))).map(AnnotatedType::getType).toArray(Type[]::new);
+        return mapArray(getParameterTypes(exe, annotate(declaringType)), Type[]::new, AnnotatedType::getType);
     }
 
     private static AnnotatedType[] getParameterTypes(Executable exe, AnnotatedType declaringType, VarMap.MappingMode mappingMode) {
@@ -780,7 +776,7 @@ public class GenericTypeReflector {
         }
         ParameterizedType inner = (ParameterizedType) type.getType();
         AnnotatedType ownerType = (inner.getOwnerType() == null) ? null : capture(annotate(inner.getOwnerType()));
-        Type[] rawArgs = stream(capturedArguments).map(AnnotatedType::getType).toArray(Type[]::new);
+        Type[] rawArgs = mapArray(capturedArguments, Type[]::new, AnnotatedType::getType);
         ParameterizedType nn = new ParameterizedTypeImpl(clazz, rawArgs, ownerType == null ? null : ownerType.getType());
         return new AnnotatedParameterizedTypeImpl(nn, type.getAnnotations(), capturedArguments);
     }
@@ -887,20 +883,17 @@ public class GenericTypeReflector {
                     (AnnotatedTypeVariable) annotate(capture.getTypeVariable(), expandGenerics, cache));
 
             cache.put(new CaptureCacheKey(capture), annotatedCapture);
-            AnnotatedType[] upperBounds = stream(capture.getUpperBounds())
-                    .map(bound -> annotate(bound, expandGenerics, cache))
-                    .toArray(AnnotatedType[]::new);
+            AnnotatedType[] upperBounds = mapArray(capture.getUpperBounds(), AnnotatedType[]::new,
+                    bound -> annotate(bound, expandGenerics, cache));
             annotatedCapture.setAnnotatedUpperBounds(upperBounds); //complete the type
             return annotatedCapture;
         }
         if (type instanceof WildcardType) {
             WildcardType wildcard = (WildcardType) type;
-            AnnotatedType[] lowerBounds = stream(wildcard.getLowerBounds())
-                    .map(bound -> annotate(bound, expandGenerics, cache))
-                    .toArray(AnnotatedType[]::new);
-            AnnotatedType[] upperBounds = stream(wildcard.getUpperBounds())
-                    .map(bound -> annotate(bound, expandGenerics, cache))
-                    .toArray(AnnotatedType[]::new);
+            AnnotatedType[] lowerBounds = mapArray(wildcard.getLowerBounds(), AnnotatedType[]::new,
+                    bound -> annotate(bound, expandGenerics, cache));
+            AnnotatedType[] upperBounds = mapArray(wildcard.getUpperBounds(), AnnotatedType[]::new,
+                    bound -> annotate(bound, expandGenerics, cache));
             return new AnnotatedWildcardTypeImpl(wildcard, erase(type).getAnnotations(), lowerBounds, upperBounds);
         }
         if (type instanceof TypeVariable) {
@@ -1032,7 +1025,7 @@ public class GenericTypeReflector {
     }
 
     private static AnnotatedParameterizedType replaceParameters(AnnotatedParameterizedType type, Annotation[] annotations, AnnotatedType[] typeParameters) {
-        Type[] rawArguments = stream(typeParameters).map(AnnotatedType::getType).toArray(Type[]::new);
+        Type[] rawArguments = mapArray(typeParameters, Type[]::new, AnnotatedType::getType);
         ParameterizedType inner = (ParameterizedType) type.getType();
         ParameterizedType rawType = (ParameterizedType) TypeFactory.parameterizedInnerClass(inner.getOwnerType(), erase(inner), rawArguments);
         return new AnnotatedParameterizedTypeImpl(rawType, merge(type.getAnnotations(), annotations), typeParameters);
@@ -1182,7 +1175,7 @@ public class GenericTypeReflector {
 
     private static AnnotatedParameterizedType expandClassGenerics(Class<?> type) {
         ParameterizedType inner = new ParameterizedTypeImpl(type, type.getTypeParameters(), type.getDeclaringClass());
-        AnnotatedType[] params = stream(type.getTypeParameters()).map(GenericTypeReflector::annotate).toArray(AnnotatedType[]::new);
+        AnnotatedType[] params = mapArray(type.getTypeParameters(), AnnotatedType[]::new, GenericTypeReflector::annotate);
         return new AnnotatedParameterizedTypeImpl(inner, type.getAnnotations(), params);
     }
 
@@ -1194,11 +1187,7 @@ public class GenericTypeReflector {
      * @return An array containing all annotations from the given arrays, without duplicates
      */
     public static Annotation[] merge(Annotation[]... annotations) {
-        int size = 0;
-        for (Annotation[] annos : annotations) {
-            size += annos.length;
-        }
-        Set<Annotation> result = new HashSet<>(size);
+        Set<Annotation> result = new LinkedHashSet<>();
         for (Annotation[] annos : annotations) {
             for (Annotation anno : annos) {
                 result.add(anno);
@@ -1265,6 +1254,14 @@ public class GenericTypeReflector {
         for (AnnotatedType superType : getExactDirectSuperTypes(annotate(type))) {
             buildUpperBoundClassAndInterfaces(superType.getType(), result);
         }
+    }
+
+    private static <I, O> O[] mapArray(I[] array, IntFunction<O[]> resultCtor, Function<I, O> mapper) {
+        O[] result = resultCtor.apply(array.length);
+        for (int i = 0; i < array.length; i++) {
+            result[i] = mapper.apply(array[i]);
+        }
+        return result;
     }
 
     /**
