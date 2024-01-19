@@ -1166,9 +1166,22 @@ public class GenericTypeReflector {
 
             @Override
             protected AnnotatedType visitCaptureType(AnnotatedCaptureType type) {
-                return type.getAnnotatedLowerBounds().length > 0
-                        ? updateAnnotations(transform(type.getAnnotatedLowerBounds()[0], this), type.getAnnotations())
-                        : updateAnnotations(transform(type.getAnnotatedUpperBounds()[0], this), type.getAnnotations());
+                AnnotatedType capturedType = type.getAnnotatedLowerBounds().length > 0
+                    ? type.getAnnotatedLowerBounds()[0]
+                    : type.getAnnotatedUpperBounds()[0];
+
+                if (capturedType instanceof AnnotatedParameterizedType) {
+                    AnnotatedType[] typeArguments = ((AnnotatedParameterizedType) capturedType).getAnnotatedActualTypeArguments();
+                    for (AnnotatedType typeArgument : typeArguments) {
+                        if (type.equals(typeArgument)) {
+                            // recursive definition. Return the raw type to avoid endless recursion.
+                            ParameterizedType parameterizedType = (ParameterizedType) capturedType.getType();
+                            return annotate(parameterizedType.getRawType(), type.getAnnotations());
+                        }
+                    }
+                }
+
+                return updateAnnotations(transform(capturedType, this), type.getAnnotations());
             }
         });
     }
