@@ -91,6 +91,6 @@ public abstract class TypeToken<T> {
 
     @Override
     public int hashCode() {
-        return type.hashCode();
+        return getType().hashCode();
     }
 }
