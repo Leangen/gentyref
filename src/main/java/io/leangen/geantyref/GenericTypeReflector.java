@@ -441,7 +441,12 @@ public class GenericTypeReflector {
     public static AnnotatedType getArrayComponentType(AnnotatedType type) {
         if (type.getType() instanceof Class) {
             Class<?> clazz = (Class<?>)type.getType();
-            return new AnnotatedTypeImpl(clazz.getComponentType(), clazz.getAnnotations(), type.getAnnotatedOwnerType());
+            if (clazz.getComponentType() == null) {
+                return null;
+            }
+            else {
+                return new AnnotatedTypeImpl(clazz.getComponentType(), clazz.getAnnotations(), type.getAnnotatedOwnerType());
+            }
         } else if (type instanceof AnnotatedArrayType) {
             AnnotatedArrayType aType = (AnnotatedArrayType) type;
             return aType.getAnnotatedGenericComponentType();
