@@ -270,6 +270,26 @@ public class GenericTypeReflectorTest extends AbstractGenericsReflectorTest {
         assertAnnotationsPresent(annotatedOwnerType.getAnnotatedActualTypeArguments()[0], A4.class, A1.class);
     }
 
+    public void testArrayComponentType1() {
+        // N is not an array class. Per the contract of the method, it should return null.
+        // NOTE: This is a regression test for issue #32
+        Type elementType = GenericTypeReflector.getArrayComponentType(N.class);
+        assertEquals(null, elementType);
+    }
+
+    public void testArrayComponentType2() {
+        // String[] is an array class. Per the contract of the method, it should return String.class.
+        Type elementType = GenericTypeReflector.getArrayComponentType(String[].class);
+        assertEquals(String.class, elementType);
+    }
+
+    public void testArrayComponentType3() {
+        // gat1 is an generic array type. Per the contract of the method, it should return List<String>,
+        // which is stored in gate1.
+        Type elementType = GenericTypeReflector.getArrayComponentType(gat1);
+        assertEquals(gate1, elementType);
+    }
+
     private class N {}
     private class P<S, K> extends N {}
     private class L<S, K> extends P<List<K>, List<Map<K, S>>> {}
@@ -289,6 +309,9 @@ public class GenericTypeReflectorTest extends AbstractGenericsReflectorTest {
 
     private static AnnotatedType t1 = new TypeToken<@A1 Optional<@A2 Map<@A3 String, @A4 Integer @A5 []>>>(){}.getAnnotatedType();
     private static AnnotatedType t2 = new TypeToken<@A5 Optional<@A4 Map<@A2 String, @A3 Integer @A1 []>>>(){}.getAnnotatedType();
+
+    private static Type gat1 = new TypeToken<List<String> []>(){}.getType();
+    private static Type gate1 = new TypeToken<List<String>>(){}.getType();
 
     private class Outer { @A1 class Inner { @A2 class Innermost {}}}
 
